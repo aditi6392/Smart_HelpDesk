@@ -1,0 +1,39 @@
+// backend/models/Ticket.js
+import mongoose from "mongoose";
+
+const TicketSchema = new mongoose.Schema(
+  {
+    subject: { type: String, required: true, trim: true },
+    description: { type: String, default: "" },
+    requesterEmail: { type: String, required: true, lowercase: true, trim: true },
+
+    category: {
+      type: String,
+      enum: ["general", "billing", "technical", "account"],
+      default: "general",
+    },
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high", "urgent"],
+      default: "medium",
+    },
+    status: {
+      type: String,
+      enum: ["open", "in_progress", "waiting", "resolved", "closed"],
+      default: "open",
+    },
+    assignedTo: { type: String, default: null },
+
+    // AI triage placeholders
+    ai: {
+      category: { type: String, default: null },
+      suggestedReply: { type: String, default: null },
+      confidence: { type: Number, default: null },
+      autoResolved: { type: Boolean, default: false },
+    },
+  },
+  { timestamps: true }
+);
+
+const Ticket = mongoose.model("Ticket", TicketSchema);
+export default Ticket;
