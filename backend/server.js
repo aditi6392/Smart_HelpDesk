@@ -1,11 +1,12 @@
-// backend/server.js
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import ticketsRouter from "./routes/tickets.routes.js";
+import usersRouter from "./routes/userRoutes.js"; // <-- ES module import
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
+import kbRouter from "./routes/kb.routes.js";
 
 dotenv.config();
 const app = express();
@@ -23,8 +24,14 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "smart-helpdesk-backend", time: new Date().toISOString() });
 });
 
-// Tickets API
+// Routes
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/users", usersRouter); // <-- fixed
+// Routes
+app.use("/api/tickets", ticketsRouter);
+app.use("/api/users", usersRouter);
+app.use("/api/kb", kbRouter);  // <-- KB routes
+
 
 // 404 + error handlers
 app.use(notFound);

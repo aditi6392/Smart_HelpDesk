@@ -1,59 +1,88 @@
-// backend/controllers/tickets.controller.js
+import asyncHandler from "../middleware/asyncHandler.js";
 import Ticket from "../models/Ticket.js";
-import { asyncHandler } from "../middleware/asyncHandler.js";
 
-// POST /api/tickets
-export const createTicket = asyncHandler(async (req, res) => {
-  const { subject, description, requesterEmail, category, priority } = req.body;
+// Create ticket
+const createTicket = asyncHandler(async (req, res) => {
+  const { subject, description, category, priority } = req.body;
 
-  if (!subject || !requesterEmail) {
-    res.status(400);
-    throw new Error("subject and requesterEmail are required");
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authorized" });
+  }
+  // Example AI triage (basic rule-based)
+ticket.ai.category = category || "general";
+ticket.ai.suggestedReply = `Hello, we are reviewing your ${ticket.ai.category} issue.`;
+ticket.ai.confidence = 0.8; // Example confidence
+await ticket.save();
+
+
+  // Validate required field
+  if (!subject) {
+    return res.status(400).json({ message: "Subject is required" });
   }
 
   const ticket = await Ticket.create({
     subject,
-    description,
-    requesterEmail,
-    category,
-    priority,
+    description: description || "", // default to empty string
+    category: category || "general", // default to general
+    priority: priority || "medium",  // default to medium
+    requester: req.user._id,
+    requesterEmail: req.user.email,
   });
 
   res.status(201).json(ticket);
 });
 
-// GET /api/tickets
-export const listTickets = asyncHandler(async (req, res) => {
-  const tickets = await Ticket.find().sort({ createdAt: -1 });
+// Get all tickets for logged-in user
+const getTickets = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authorized" });
+  }
+
+  const tickets = await Ticket.find({ requester: req.user._id }).sort({ createdAt: -1 });
   res.json(tickets);
 });
 
-// GET /api/tickets/:id
-export const getTicket = asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findById(req.params.id);
-  if (!ticket) {
-    res.status(404);
-    throw new Error("Ticket not found");
+// Get ticket by ID
+const getTicketById = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authorized" });
   }
+
+  const ticket = await Ticket.findById(req.params.id);
+
+  if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+  if (
+    ticket.requester.toString() !== req.user._id.toString() &&
+    (!ticket.assignedTo || ticket.assignedTo.toString() !== req.user._id.toString())
+  ) {
+    return res.status(403).json({ message: "Not authorized to view this ticket" });
+  }
+
   res.json(ticket);
 });
 
-// PATCH /api/tickets/:id/status
-export const updateStatus = asyncHandler(async (req, res) => {
+// Update ticket status
+const updateTicketStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  const allowed = ["open", "in_progress", "waiting", "resolved", "closed"];
-  if (!allowed.includes(status)) {
-    res.status(400);
-    throw new Error(`Invalid status. Allowed: ${allowed.join(", ")}`);
+
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authorized" });
   }
-  const ticket = await Ticket.findByIdAndUpdate(
-    req.params.id,
-    { status },
-    { new: true }
-  );
-  if (!ticket) {
-    res.status(404);
-    throw new Error("Ticket not found");
+
+  const ticket = await Ticket.findById(req.params.id);
+  if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+  if (
+    ticket.requester.toString() !== req.user._id.toString() &&
+    (!ticket.assignedTo || ticket.assignedTo.toString() !== req.user._id.toString())
+  ) {
+    return res.status(403).json({ message: "Not authorized to update this ticket" });
   }
-  res.json(ticket);
+
+  ticket.status = status || ticket.status;
+  const updatedTicket = await ticket.save();
+  res.json(updatedTicket);
 });
+
+export { createTicket, getTickets, getTicketById, updateTicketStatus };

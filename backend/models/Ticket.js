@@ -3,10 +3,26 @@ import mongoose from "mongoose";
 
 const TicketSchema = new mongoose.Schema(
   {
-    subject: { type: String, required: true, trim: true },
-    description: { type: String, default: "" },
-    requesterEmail: { type: String, required: true, lowercase: true, trim: true },
-
+    subject: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    description: {
+      type: String,
+      default: "",
+    },
+    requester: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User", // link ticket to registered user
+      required: true,
+    },
+    requesterEmail: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
     category: {
       type: String,
       enum: ["general", "billing", "technical", "account"],
@@ -22,7 +38,11 @@ const TicketSchema = new mongoose.Schema(
       enum: ["open", "in_progress", "waiting", "resolved", "closed"],
       default: "open",
     },
-    assignedTo: { type: String, default: null },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User", // can assign ticket to a support agent
+      default: null,
+    },
 
     // AI triage placeholders
     ai: {

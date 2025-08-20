@@ -1,12 +1,18 @@
-// backend/routes/tickets.routes.js
 import { Router } from "express";
-import { createTicket, listTickets, getTicket, updateStatus } from "../controllers/tickets.controller.js";
+import {
+  createTicket,
+  getTickets,
+  getTicketById,
+  updateTicketStatus,
+} from "../controllers/tickets.controller.js";
+import { protect } from "../middleware/authMiddleware.js"; // <-- import middleware
 
 const router = Router();
 
-router.post("/", createTicket);
-router.get("/", listTickets);
-router.get("/:id", getTicket);
-router.patch("/:id/status", updateStatus);
+// Protect all ticket routes
+router.post("/", protect, createTicket);
+router.get("/", protect, getTickets);
+router.get("/:id", protect, getTicketById);
+router.patch("/:id/status", protect, updateTicketStatus);
 
 export default router;
