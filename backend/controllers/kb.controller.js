@@ -22,6 +22,13 @@ const getKBs = asyncHandler(async (req, res) => {
   const kbs = await KnowledgeBase.find().sort({ createdAt: -1 });
   res.json(kbs);
 });
+// Get KB by ID
+const getKBById = asyncHandler(async (req, res) => {
+  const kb = await KnowledgeBase.findById(req.params.id);
+  if (!kb) return res.status(404).json({ message: "KB article not found" });
+
+  res.json(kb);
+});
 
 // Update KB article (admin only)
 const updateKB = asyncHandler(async (req, res) => {
@@ -45,4 +52,4 @@ const deleteKB = asyncHandler(async (req, res) => {
   res.json({ message: "KB article deleted" });
 });
 
-export { createKB, getKBs, updateKB, deleteKB };
+export { createKB, getKBs, getKBById, updateKB, deleteKB };

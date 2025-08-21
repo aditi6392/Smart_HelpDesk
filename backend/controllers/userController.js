@@ -1,34 +1,17 @@
-// backend/controllers/userController.js
-import User from "../models/User.js";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import {
+  registerUserService,
+  loginUserService,
+  updateUserRoleService,
+} from "../services/userService.js";
 
-// ----------------- REGISTER USER -----------------
-const registerUser = async (req, res) => {
+// ----------------- REGISTER -----------------
+export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
-
-    if (!name || !email || !password) {
+    if (!name || !email || !password)
       return res.status(400).json({ message: "All fields are required" });
-    }
 
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: role || "user", // default role is 'user'
-    });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
+    const { user, token } = await registerUserService({ name, email, password, role });
 
     res.status(201).json({
       _id: user._id,
@@ -38,33 +21,18 @@ const registerUser = async (req, res) => {
       token,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(400).json({ message: error.message });
   }
 };
 
-// ----------------- LOGIN USER -----------------
-const loginUser = async (req, res) => {
+// ----------------- LOGIN -----------------
+export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body || {};
-
-    if (!email || !password) {
+    if (!email || !password)
       return res.status(400).json({ message: "Email and password are required" });
-    }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
+    const { user, token } = await loginUserService({ email, password });
 
     res.json({
       _id: user._id,
@@ -74,26 +42,17 @@ const loginUser = async (req, res) => {
       token,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(400).json({ message: error.message });
   }
 };
 
-// ----------------- UPDATE USER ROLE (ADMIN ONLY) -----------------
-const updateUserRole = async (req, res) => {
+// ----------------- UPDATE USER ROLE -----------------
+export const updateUserRole = async (req, res) => {
   try {
-    const { role } = req.body; // expected: "admin", "agent", "user"
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    user.role = role;
-    const updatedUser = await user.save();
-
+    const { role } = req.body;
+    const updatedUser = await updateUserRoleService(req.params.id, role);
     res.json({ message: "Role updated", user: updatedUser });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(400).json({ message: error.message });
   }
 };
-
-export { registerUser, loginUser, updateUserRole };
