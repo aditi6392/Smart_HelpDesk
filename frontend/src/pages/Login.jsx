@@ -1,15 +1,13 @@
 import { useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);   // ✅ use context
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
+  const { login } = useContext(AuthContext);
+
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,14 +20,30 @@ export default function Login() {
     setError("");
     setLoading(true);
 
+    console.log("➡️ Sending login request with:", form);
+
     try {
-      const res = await axios.post("http://localhost:5000/api/users/login", form);
+      const res = await axios.post(
+        "http://localhost:5000/api/users/login",
+        form,
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-      // ✅ store in context
-      login(res.data.token, res.data.email || form.email);
+      console.log("✅ Login response:", res.data);
 
-      navigate("/dashboard");
+      const { token, role, email, name, _id } = res.data;
+
+      // store user in context
+      login(token, role, { email, name, _id });
+
+      // redirect based on role
+      if (role === "admin") {
+        navigate("/admin/kb"); // ⬅️ admin KB page
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
+      console.error("❌ Login error:", err.response?.data || err.message);
       setError(err.response?.data?.message || "Invalid credentials");
     } finally {
       setLoading(false);
@@ -85,9 +99,9 @@ export default function Login() {
 
         <p className="mt-4 text-sm text-gray-600 text-center">
           Don’t have an account?{" "}
-          <a href="/register" className="text-emerald-600 hover:underline">
+          <Link to="/register" className="text-emerald-600 hover:underline">
             Register
-          </a>
+          </Link>
         </p>
       </div>
     </div>

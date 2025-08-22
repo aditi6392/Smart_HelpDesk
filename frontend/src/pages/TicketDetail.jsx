@@ -8,8 +8,7 @@ const STATUS_OPTIONS = ["open", "in_progress", "resolved"];
 
 export default function TicketDetail() {
   const { id } = useParams();
-  const { token } = useContext(AuthContext);
-
+  const { token, user } = useContext(AuthContext); // ✅ we now use user for auto-assign
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +19,6 @@ export default function TicketDetail() {
   const [assignError, setAssignError] = useState("");
   const [pageError, setPageError] = useState("");
 
-  // Agent input (we don't assume a "list agents" endpoint; you can paste an agentId)
   const [agentId, setAgentId] = useState("");
 
   // Fetch ticket by ID
@@ -33,7 +31,20 @@ export default function TicketDetail() {
       .get(`/tickets/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => setTicket(res.data))
+      .then((res) => {
+        setTicket(res.data);
+
+        // 🚨 Auto-escalate rule:
+        // If ticket is unassigned and still open, auto-assign to current user if they're agent/admin
+        if (
+          res.data &&
+          !res.data.assignedTo &&
+          res.data.status === "open" &&
+          user?.role !== "customer"
+        ) {
+          autoAssign(res.data._id, user._id);
+        }
+      })
       .catch((err) => {
         console.error("Error fetching ticket:", err);
         setPageError(
@@ -41,7 +52,21 @@ export default function TicketDetail() {
         );
       })
       .finally(() => setLoading(false));
-  }, [id, token]);
+  }, [id, token, user]);
+
+  // auto-assign to human agent/admin
+  const autoAssign = async (ticketId, agentId) => {
+    try {
+      const res = await api.patch(
+        `/tickets/${ticketId}/assign`,
+        { agentId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setTicket(res.data || {});
+    } catch (err) {
+      console.warn("Auto-assign skipped:", err.response?.data?.message);
+    }
+  };
 
   const isLowPriorityAndUnassigned = useMemo(() => {
     if (!ticket) return false;
@@ -62,8 +87,11 @@ export default function TicketDetail() {
         { status: nextStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Optimistic refresh
-      setTicket((t) => ({ ...t, status: nextStatus, updatedAt: new Date().toISOString() }));
+      setTicket((t) => ({
+        ...t,
+        status: nextStatus,
+        updatedAt: new Date().toISOString(),
+      }));
     } catch (err) {
       console.error("Status update failed:", err);
       setStatusError(err.response?.data?.message || "Failed to update status");
@@ -72,7 +100,7 @@ export default function TicketDetail() {
     }
   };
 
-  // Assign to agent
+  // Assign to agent (manual)
   const assignToAgent = async () => {
     if (!ticket || !token || !agentId.trim()) {
       setAssignError("Please provide a valid agentId");
@@ -86,15 +114,7 @@ export default function TicketDetail() {
         { agentId: agentId.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Backend might return updated ticket; if not, update locally
-      const updated = res?.data || {};
-      setTicket((t) => ({
-        ...t,
-        assignedTo:
-          updated.assignedTo ??
-          t.assignedTo ?? { _id: agentId.trim(), name: "Assigned Agent", email: "" },
-        updatedAt: new Date().toISOString(),
-      }));
+      setTicket(res?.data || {});
       setAgentId("");
     } catch (err) {
       console.error("Assignment failed:", err);
@@ -133,7 +153,6 @@ export default function TicketDetail() {
     );
   }
 
-  // Safe render helpers
   const renderPerson = (value) => {
     if (!value) return "N/A";
     if (typeof value === "string") return value;
@@ -190,11 +209,19 @@ export default function TicketDetail() {
         <Info label="Assigned To" value={renderPerson(ticket.assignedTo)} />
         <Info
           label="Created At"
-          value={ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : "N/A"}
+          value={
+            ticket.createdAt
+              ? new Date(ticket.createdAt).toLocaleString()
+              : "N/A"
+          }
         />
         <Info
           label="Updated At"
-          value={ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : "N/A"}
+          value={
+            ticket.updatedAt
+              ? new Date(ticket.updatedAt).toLocaleString()
+              : "N/A"
+          }
         />
       </div>
 
@@ -206,19 +233,50 @@ export default function TicketDetail() {
         </p>
       </section>
 
-      {/* Quick-assign hint for low priority & unassigned */}
+      {/* ✅ AI Auto-Reply (if available) */}
+      {ticket.finalReply && (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            AI Response
+          </h2>
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <p className="text-gray-800 whitespace-pre-line">
+              {ticket.finalReply}
+            </p>
+
+            {ticket.ai && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {ticket.ai.autoResolved && (
+                  <span className="px-2 py-1 text-xs font-medium rounded bg-emerald-100 text-emerald-800">
+                    Auto-resolved by AI
+                  </span>
+                )}
+                {ticket.ai.confidence && (
+                  <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800">
+                    Confidence: {(ticket.ai.confidence * 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Quick-assign hint */}
       {isLowPriorityAndUnassigned && (
         <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-emerald-800 font-medium">
-            This is a low priority ticket and currently unassigned. You can assign it to a human
-            agent below.
+            This is a low priority ticket and currently unassigned. You can
+            assign it to a human agent below.
           </p>
         </div>
       )}
 
       {/* Assign panel */}
       <section className="mt-6">
-        <h3 className="text-base font-semibold text-gray-900 mb-2">Assign to Agent</h3>
+        <h3 className="text-base font-semibold text-gray-900 mb-2">
+          Assign to Agent
+        </h3>
         {assignError && (
           <p className="mb-3 text-sm bg-red-50 text-red-700 px-3 py-2 rounded">
             {assignError}
@@ -240,21 +298,15 @@ export default function TicketDetail() {
             {assignSaving ? "Assigning..." : "Assign Agent"}
           </button>
         </div>
-        <p className="mt-2 text-xs text-gray-500">
-          This calls <code>PATCH /api/tickets/{ticket._id}/assign</code> with{" "}
-          <code>{`{ agentId }`}</code>.
-        </p>
       </section>
     </div>
   );
 }
 
-/* Small info block that safely renders any primitive/object */
 function Info({ label, value }) {
   let display = "N/A";
   if (value !== null && value !== undefined) {
     if (typeof value === "object") {
-      // Try to display friendly identity if possible
       if ("name" in value || "email" in value) {
         const name = value?.name || "Unknown";
         const email = value?.email ? ` (${value.email})` : "";

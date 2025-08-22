@@ -1,5 +1,6 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useContext } from "react";
 import Navbar from "./components/Navbar";
 
 import Login from "./pages/Login";
@@ -9,9 +10,22 @@ import CreateTicket from "./pages/CreateTicket";
 import TicketDetail from "./pages/TicketDetail";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import ArticleDetail from "./pages/ArticleDetail";
+import AdminDashboard from "./pages/AdminDashboard";
+import CreateKB from "./pages/CreateKB"; // ✅ import create KB page
 
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, AuthContext } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+
+function RoleBasedRedirect() {
+  const { user, role } = useContext(AuthContext);
+
+  if (!user) return <Navigate to="/login" replace />;
+  return role === "admin" ? (
+    <Navigate to="/admin/dashboard" replace />
+  ) : (
+    <Navigate to="/dashboard" replace />
+  );
+}
 
 export default function App() {
   return (
@@ -19,11 +33,11 @@ export default function App() {
       <Router>
         <Navbar />
         <Routes>
-          {/* Public routes */}
+          {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected routes */}
+          {/* User routes */}
           <Route
             path="/dashboard"
             element={
@@ -65,8 +79,34 @@ export default function App() {
             }
           />
 
-          {/* Default route */}
-          <Route path="*" element={<Login />} />
+          {/* Admin routes */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute role="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/kb"
+            element={
+              <ProtectedRoute role="admin">
+                <KnowledgeBase />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/kb/create"
+            element={
+              <ProtectedRoute role="admin">
+                <CreateKB />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Default */}
+          <Route path="*" element={<RoleBasedRedirect />} />
         </Routes>
       </Router>
     </AuthProvider>

@@ -1,8 +1,8 @@
 // src/pages/CreateTicket.jsx
 import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import { AuthContext } from "../context/AuthContext";
 
 export default function CreateTicket() {
   const { token } = useContext(AuthContext);
@@ -11,9 +11,10 @@ export default function CreateTicket() {
   const [form, setForm] = useState({
     subject: "",
     description: "",
-    category: "general",
-    priority: "medium",
+    category: "technical",
+    priority: "low",
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -27,104 +28,86 @@ export default function CreateTicket() {
     setError("");
 
     try {
-      await api.post("/tickets", form, {
+      const res = await api.post("/tickets", form, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      const ticket = res.data;
+
+      // ✅ AI auto-resolved immediately
+      if (ticket.status === "resolved" && ticket.finalReply) {
+        alert("✅ Your ticket was auto-resolved:\n\n" + ticket.finalReply);
+      }
+
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Ticket creation failed");
+      setError(err.response?.data?.message || "Failed to create ticket");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 to-blue-200 px-4">
-      <div className="w-full max-w-lg bg-white shadow-lg rounded-2xl p-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          Create New Ticket
-        </h2>
+    <div className="max-w-2xl mx-auto px-4 py-6">
+      <h1 className="text-2xl font-bold mb-4">Create Ticket</h1>
 
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+      {error && (
+        <p className="mb-3 text-red-600 bg-red-50 px-3 py-2 rounded">
+          {error}
+        </p>
+      )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Subject */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Subject
-            </label>
-            <input
-              type="text"
-              name="subject"
-              value={form.subject}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              placeholder="Enter ticket subject"
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          type="text"
+          name="subject"
+          value={form.subject}
+          onChange={handleChange}
+          placeholder="Subject"
+          required
+          className="w-full border px-3 py-2 rounded"
+        />
 
-          {/* Description */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              required
-              rows="4"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              placeholder="Describe your issue"
-            />
-          </div>
+        <textarea
+          name="description"
+          value={form.description}
+          onChange={handleChange}
+          placeholder="Describe your issue..."
+          required
+          rows={5}
+          className="w-full border px-3 py-2 rounded"
+        />
 
-          {/* Category */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Category
-            </label>
-            <select
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="general">General</option>
-              <option value="technical">Technical</option>
-              <option value="billing">Billing</option>
-              <option value="account">Account</option>
-            </select>
-          </div>
+        <select
+          name="category"
+          value={form.category}
+          onChange={handleChange}
+          className="w-full border px-3 py-2 rounded"
+        >
+          <option value="technical">Technical</option>
+          <option value="billing">Billing</option>
+          <option value="general">General</option>
+        </select>
 
-          {/* Priority */}
-          <div>
-            <label className="block text-gray-700 font-medium mb-1">
-              Priority
-            </label>
-            <select
-              name="priority"
-              value={form.priority}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
+        <select
+          name="priority"
+          value={form.priority}
+          onChange={handleChange}
+          className="w-full border px-3 py-2 rounded"
+        >
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition disabled:opacity-50"
-          >
-            {loading ? "Creating..." : "Create Ticket"}
-          </button>
-        </form>
-      </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+        >
+          {loading ? "Submitting..." : "Create Ticket"}
+        </button>
+      </form>
     </div>
   );
 }

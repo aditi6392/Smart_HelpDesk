@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+// src/pages/KnowledgeBase.jsx
+import { useEffect, useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { AuthContext } from "../context/AuthContext";
 
 export default function KnowledgeBase() {
   const [articles, setArticles] = useState([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
+
+  const { role, token } = useContext(AuthContext);
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -20,8 +23,21 @@ export default function KnowledgeBase() {
         setError("Failed to load Knowledge Base.");
       }
     };
-    fetchArticles();
+    if (token) fetchArticles();
   }, [token]);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this article?")) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/kb/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setArticles((prev) => prev.filter((a) => a._id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete article");
+    }
+  };
 
   const filteredArticles = articles.filter(
     (a) =>
@@ -35,6 +51,18 @@ export default function KnowledgeBase() {
         <h2 className="text-3xl font-bold text-indigo-600 mb-6 text-center">
           Knowledge Base
         </h2>
+
+        {/* Admin: Create button */}
+        {role === "admin" && (
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => navigate("/admin/kb/create")}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow"
+            >
+              + Create Article
+            </button>
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -60,18 +88,41 @@ export default function KnowledgeBase() {
             filteredArticles.map((article) => (
               <div
                 key={article._id}
-                className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition cursor-pointer"
-                onClick={() => navigate(`/kb/${article._id}`)}
+                className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition"
               >
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                <h3
+                  className="text-lg font-semibold text-gray-800 mb-2 cursor-pointer"
+                  onClick={() => navigate(`/kb/${article._id}`)}
+                >
                   {article.title}
                 </h3>
                 <p className="text-sm text-gray-600 line-clamp-3">
                   {article.content}
                 </p>
-                <p className="mt-3 text-indigo-600 text-sm font-medium">
+                <p
+                  onClick={() => navigate(`/kb/${article._id}`)}
+                  className="mt-3 text-indigo-600 text-sm font-medium cursor-pointer"
+                >
                   Read more →
                 </p>
+
+                {/* Admin controls */}
+                {role === "admin" && (
+                  <div className="mt-4 flex space-x-2">
+                    <button
+                      onClick={() => navigate(`/admin/kb/edit/${article._id}`)}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(article._id)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           ) : (
