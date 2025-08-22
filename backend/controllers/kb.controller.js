@@ -45,11 +45,12 @@ const updateKB = asyncHandler(async (req, res) => {
 
 // Delete KB article (admin only)
 const deleteKB = asyncHandler(async (req, res) => {
-  const kb = await KnowledgeBase.findById(req.params.id);
-  if (!kb) return res.status(404).json({ message: "KB article not found" });
-
-  await kb.remove();
+  const kb = await KnowledgeBase.findByIdAndDelete(req.params.id);
+  if (!kb) {
+    return res.status(404).json({ message: "KB article not found" });
+  }
   res.json({ message: "KB article deleted" });
 });
+
 
 export { createKB, getKBs, getKBById, updateKB, deleteKB };

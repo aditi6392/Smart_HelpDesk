@@ -1,22 +1,45 @@
+// backend/routes/tickets.routes.js
 import { Router } from "express";
 import {
   createTicket,
   getTickets,
   getTicketById,
   updateTicketStatus,
-  assignTicketToHuman,   // <-- new controller
+  assignTicketToHuman,
+  retryAIForTicket,
 } from "../controllers/tickets.controller.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
 const router = Router();
 
-// Protect all ticket routes
+// Create + list + read
 router.post("/", protect, createTicket);
 router.get("/", protect, getTickets);
 router.get("/:id", protect, getTicketById);
-router.patch("/:id/status", protect, updateTicketStatus);
 
-// NEW: Assign ticket to a human agent
-router.patch("/:id/assign", protect, assignTicketToHuman);
+// Status update (admin/agent)
+router.patch(
+  "/:id/status",
+  protect,
+  authorizeRoles("admin", "agent"),
+  updateTicketStatus
+);
+
+// Assign to agent (admin only)
+router.patch(
+  "/:id/assign",
+  protect,
+  authorizeRoles("admin"),
+  assignTicketToHuman
+);
+
+// Re-run AI (admin/agent)
+router.post(
+  "/:id/ai/retry",
+  protect,
+  authorizeRoles("admin", "agent"),
+  retryAIForTicket
+);
 
 export default router;

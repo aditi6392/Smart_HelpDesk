@@ -40,11 +40,17 @@ const TicketSchema = new mongoose.Schema(
     },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // can assign ticket to a support agent
+      ref: "User", // support agent
       default: null,
     },
 
-    // AI triage placeholders
+    // ✅ New top-level AI reply (so frontend can display easily)
+    finalReply: {
+      type: String,
+      default: null,
+    },
+
+    // AI triage details
     ai: {
       category: { type: String, default: null },
       suggestedReply: { type: String, default: null },
